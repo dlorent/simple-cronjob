@@ -1,5 +1,5 @@
 {{- define "cronjob.name" -}}
-{{- $name := (printf "%s-migration" .Release.Name) -}}
+{{- $name := (printf "%s-cronjob" .Release.Name) -}}
 {{ .Values.fullnameOverride | default $name | trunc 63 | trimSuffix "-"}}
 {{- end -}}
 
