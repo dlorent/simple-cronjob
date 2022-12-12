@@ -1,0 +1,4 @@
+apiVersion: v2
+name: simple-cronjob
+description: A Helm chart for a running a cronjob.
+version: 0.1.0

@@ -1,0 +1,76 @@
+global:
+  # Add labels from a parent chart to all manifests.
+  labels: {}
+
+# Override name of job/pod. If not set 'generate-name: db-migrate-' will be used.
+fullnameOverride: ""
+
+##################################################
+#                      Job                       #
+##################################################
+
+# Below properties sets a ArgoCD Sync/Hook annotation.
+# https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/
+argoAnnotations:
+  enable: false
+  syncPhase: Sync
+  syncWave: -2
+  hookDeletePolicy: HookSucceeded
+
+# Enable DataDog logging.
+dataDogLogs:
+  enable: true
+
+jobTemplate:
+  # Labels and Annotations on the Job definition.
+  labels: {}
+  annotations: {}
+
+  # Labels and Annotations on the Pod template.
+  podLabels: {}
+  podAnnotations: {}
+
+  imagePullSecrets: []
+    #- secret-name-here
+
+  container:
+    image: example-image
+    tag: latest
+
+  # https://crontab.guru/
+  schedule: "0 * * * *"
+
+  # Command to be executed - will overide defaults
+  command:
+    - "/bin/sh"
+    - "-c"
+    - "./my-script.sh"
+
+  environment: {}
+    # SOME_ENV: some-value
+
+  secrets:
+   - secret1
+   - secret2
+
+  # Time to live in seconds after the job has finished.
+  ttlSecondsAfterFinished: 120
+
+  # backoffLimit specifies the number of re-tries before job controller gives up.
+  backoffLimit: 2
+
+  # Restart policy of pod fails.
+  restartPolicy: OnFailure
+
+  # Assign a Kubernetes service account.
+  # Can be used with Google Workload Identity
+  serviceAccountName: default
+  
+  # Enable the Google Cloud SQL Proxy container.
+  cloudSQLProxy:
+    enable: false
+    imageTag: 1.31.0
+    projectId: google-project-id
+    region: europe-west3
+    instanceName: sqlinstance-name
+    secretKeyName: google-service-account-key

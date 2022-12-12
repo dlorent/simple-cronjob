@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "cronjob.name" $ }}
+  {{- if or (.Values.jobTemplate.annotations) (.Values.argoAnnotations.enable) }}
+  annotations:
+    {{- with .Values.jobTemplate.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if .Values.argoAnnotations.enable }}
+    argocd.argoproj.io/sync-wave: {{ .Values.argoAnnotations.syncWave | quote }}
+    argocd.argoproj.io/hook: {{ .Values.argoAnnotations.syncPhase | quote }}
+    argocd.argoproj.io/hook-delete-policy: {{ .Values.argoAnnotations.hookDeletePolicy | quote }}
+    {{- end }}
+  {{- end }}
+  labels:
+    {{- include "cronjob.labels" $ | nindent 4 }}
+    {{- with .Values.jobTemplate.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  schedule: "{{ .Values.jobTemplate.schedule }}"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    metadata:
+      {{- if or .Values.jobTemplate.podAnnotations .Values.dataDogLogs.enable }}
+      annotations:
+        {{- if.Values.dataDogLogs.enable }}
+        ad.datadoghq.com/{{ include "cronjob.name" $ }}.logs: '[{"source": "{{ include "cronjob.name" $ }}", "service": "{{ include "cronjob.name" $ }}"}]'
+        {{- end }}
+        {{- with .Values.jobTemplate.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+
+      {{- if or .Values.jobTemplate.podLabels .Values.dataDogLogs.enable }}
+      labels:
+        {{- if.Values.dataDogLogs.enable }}
+        tags.datadoghq.com/service: {{ include "cronjob.name" $ }}
+        tags.datadoghq.com/version: "{{ .Values.jobTemplate.container.tag }}"
+        {{- end }}
+        {{- with .Values.jobTemplate.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- end }}
+    spec:
+      ttlSecondsAfterFinished: {{ .Values.jobTemplate.ttlSecondsAfterFinished }}
+      template:
+        spec:
+          {{- if .Values.jobTemplate.imagePullSecrets }}
+          imagePullSecrets:
+            {{- .Values.jobTemplate.imagePullSecrets | toYaml | nindent 8 }}
+          {{- end }}
+          restartPolicy: {{ .Values.jobTemplate.restartPolicy }}
+          {{- if .Values.jobTemplate.serviceAccountName }}
+          serviceAccountName: {{ .Values.jobTemplate.serviceAccountName }}
+          {{- end }}
+          containers:
+            - name: cronjob
+              command:
+              {{- with .Values.jobTemplate.command }}
+              {{- range $command := . }}
+              - {{ $command }}
+              {{- end }}
+              {{- end }}
+              image: "{{ .Values.jobTemplate.container.image }}:{{ .Values.jobTemplate.container.tag }}"
+              {{- with .Values.jobTemplate.environment }}
+              env:
+              {{- range $name, $value := . }}
+              - name: {{ $name }}
+                value: {{ $value | quote }}
+              {{- end }}
+              {{- end }}
+              {{- with .Values.jobTemplate.secrets }}
+              volumeMounts:
+              {{- range $secret := . }}
+              - name: {{ $secret }}
+                mountPath: /secrets/{{ $secret }}
+                readOnly: true
+              {{- end }}
+              {{- end }}
+          volumes:
+            {{- range $secret := .Values.jobTemplate.secrets }}
+            - name: {{ $secret }}
+              secret:
+                secretName: {{ $secret }}
+          {{- end }}
